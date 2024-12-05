@@ -4,6 +4,7 @@ import requests
 from datetime import datetime
 import uuid
 import logging
+import os
 
 # Configure logging
 logger = logging.getLogger()
@@ -11,103 +12,123 @@ logger.setLevel(logging.INFO)
 
 # Initialize DynamoDB client
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('transit-analysis-data')
+table = dynamodb.Table('maritime-transit-data')
 
 
-def fetch_transit_data():
-    """Fetch data from multiple transit APIs"""
+def fetch_maritime_data():
+    """Fetch data from maritime transit APIs"""
     apis = [
         {
-            'name': 'NYC_Traffic',
-            'url': os.environ.get('NYC_TRAFFIC_API_URL', 'https://data.cityofnewyork.us/resource/i4gi-tjb9.json'),
+            'name': 'OpenSkyNetwork',
+            'url': os.environ.get('OPEN_SKY_NETWORK_API_URL', 'https://opensky-network.org/api/states/all'),
             'params': {
-                '$limit': 10,
-                '$where': 'speed IS NOT NULL'
+                'lamin': '40.6',
+                'lomin': '-74.0',
+                'lamax': '40.9',
+                'lomax': '-73.7'
             }
         },
         {
-            'name': 'CityBikes_NYC',
-            'url': os.environ.get('CITYBIKES_API_URL', 'http://api.citybik.es/v2/networks/citi-bike-nyc'),
-            'params': {}
-        },
-        {
-            'name': 'Weather_NYC',
-            'url': os.environ.get('WEATHER_API_URL', 'https://api.openweathermap.org/data/2.5/weather'),
+            'name': 'PortAuthorityNY_NJ',
+            'url': os.environ.get('PORT_AUTHORITY_NY_NJ_API_URL', 'https://api.xamcheck.com/data/v1/panynj/arriving'),
             'params': {
-                'q': 'New York,US',
-                'appid': os.environ.get('WEATHER_API_KEY', ''),
-                'units': 'metric'
+                'token': os.environ.get('XAMCHECK_API_TOKEN', '')
             }
         }
     ]
-def process_traffic_data(data):
-    """Process NYC traffic data"""
+
+    sources = {}
+    for api in apis:
+        try:
+            response = requests.get(api['url'], params=api['params'])
+            data = response.json()
+
+            if api['name'] == 'OpenSkyNetwork':
+                processed_data = process_open_sky_data(data)
+            elif api['name'] == 'PortAuthorityNY_NJ':
+                processed_data = process_port_authority_data(data)
+
+            sources[api['name']] = {
+                'status': 'success',
+                'data': processed_data
+            }
+
+            # Store the processed data in DynamoDB
+            store_maritime_data({
+                'timestamp': datetime.utcnow().isoformat(),
+                'sources': {
+                    api['name']: {
+                        'status': 'success',
+                        'data': processed_data
+                    }
+                }
+            })
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching data from {api['name']}: {str(e)}")
+            sources[api['name']] = {
+                'status': 'error',
+                'message': str(e)
+            }
+            store_maritime_data({
+                'timestamp': datetime.utcnow().isoformat(),
+                'sources': {
+                    api['name']: {
+                        'status': 'error',
+                        'message': str(e)
+                    }
+                }
+            })
+
+    return {'timestamp': datetime.utcnow().isoformat(), 'sources': sources}
+
+def process_open_sky_data(data):
+    """Process OpenSky Network data"""
     try:
         summary = {
-            'total_records': len(data),
-            'average_speed': 0,
-            'congested_segments': 0,
-            'locations': []
+            'total_aircraft': len(data['states']),
+            'aircraft_types': {},
+            'origin_countries': {}
         }
         
-        total_speed = 0
-        for record in data:
-            speed = float(record.get('speed', 0))
-            total_speed += speed
+        for aircraft in data['states']:
+            if aircraft[8] not in summary['aircraft_types']:
+                summary['aircraft_types'][aircraft[8]] = 1
+            else:
+                summary['aircraft_types'][aircraft[8]] += 1
             
-            if speed < 15:  # Define congestion as < 15 mph
-                summary['congested_segments'] += 1
-            
-            summary['locations'].append({
-                'speed': speed,
-                'borough': record.get('borough', 'Unknown'),
-                'link_name': record.get('link_name', 'Unknown')
-            })
-        
-        if data:
-            summary['average_speed'] = total_speed / len(data)
+            if aircraft[2] not in summary['origin_countries']:
+                summary['origin_countries'][aircraft[2]] = 1
+            else:
+                summary['origin_countries'][aircraft[2]] += 1
         
         return summary
     
     except Exception as e:
-        logger.error(f"Error processing traffic data: {str(e)}")
+        logger.error(f"Error processing OpenSky Network data: {str(e)}")
         return {'error': str(e)}
 
-def process_bike_data(data):
-    """Process CitiBike data"""
+def process_port_authority_data(data):
+    """Process Port Authority of NY & NJ data"""
     try:
-        network = data.get('network', {})
-        stations = network.get('stations', [])
-        
         summary = {
-            'total_stations': len(stations),
-            'available_bikes': 0,
-            'available_docks': 0,
-            'stations_data': []
+            'total_vessels': len(data['items']),
+            'vessel_types': {}
         }
         
-        for station in stations[:10]:  # Limit to 10 stations for summary
-            bikes = station.get('free_bikes', 0)
-            docks = station.get('empty_slots', 0)
-            
-            summary['available_bikes'] += bikes
-            summary['available_docks'] += docks
-            
-            summary['stations_data'].append({
-                'name': station.get('name', 'Unknown'),
-                'available_bikes': bikes,
-                'available_docks': docks,
-                'latitude': station.get('latitude'),
-                'longitude': station.get('longitude')
-            })
+        for vessel in data['items']:
+            if vessel['type'] not in summary['vessel_types']:
+                summary['vessel_types'][vessel['type']] = 1
+            else:
+                summary['vessel_types'][vessel['type']] += 1
         
         return summary
     
     except Exception as e:
-        logger.error(f"Error processing bike data: {str(e)}")
+        logger.error(f"Error processing Port Authority of NY & NJ data: {str(e)}")
         return {'error': str(e)}
 
-def store_transit_data(data):
+def store_maritime_data(data):
     """Store the collected data in DynamoDB"""
     try:
         item = {
@@ -128,21 +149,17 @@ def store_transit_data(data):
 def lambda_handler(event, context):
     """Main Lambda handler function"""
     try:
-        logger.info("Starting data collection process")
-        transit_data = fetch_transit_data()
-        
-        logger.info("Storing collected data")
-        storage_success = store_transit_data(transit_data)
+        logger.info("Starting maritime data collection process")
+        maritime_data = fetch_maritime_data()
         
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Data ingestion complete',
-                'success': storage_success,
+                'message': 'Maritime data ingestion complete',
                 'timestamp': datetime.utcnow().isoformat(),
                 'summary': {
                     source: data['status'] 
-                    for source, data in transit_data['sources'].items()
+                    for source, data in maritime_data['sources'].items()
                 }
             })
         }
@@ -153,6 +170,6 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': json.dumps({
                 'error': str(e),
-                'message': 'Data ingestion failed'
+                'message': 'Maritime data ingestion failed'
             })
         }
