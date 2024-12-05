@@ -14,7 +14,7 @@ class TestProcessOpenSkyData(unittest.TestCase):
             "states": [
                 ["a5e679", "N48CG   ", "United States", None, None, 35.133, -81.1076],
                 ["ace5bb", "DAL3177 ", "United States", None, None, 35.2208, -81.0674]
-            ]
+            ] 
         } 
 
         result = process_open_sky_data(mock_data)
