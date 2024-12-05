@@ -1,0 +1,44 @@
+name: Deploy Lambda Function
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/lambda_functions/data_ingestor/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          cd backend/lambda_functions/data_ingestor
+          pip install --target ./package requests boto3
+
+      - name: Create deployment package
+        run: |
+          cd backend/lambda_functions/data_ingestor/package
+          zip -r ../deployment.zip .
+          cd ..
+          zip -g deployment.zip lambda_function.py
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update Lambda Function
+        run: |
+          cd backend/lambda_functions/data_ingestor
+          aws lambda update-function-code \
+            --function-name transit-data-ingestor \
+            --zip-file fileb://deployment.zip
