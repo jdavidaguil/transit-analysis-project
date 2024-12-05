@@ -36,7 +36,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Update Lambda Function
+      - name: Deploy to AWS Lambda
         run: |
           cd backend/lambda_functions/data_ingestor
           aws lambda update-function-code \
