@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from data_ingestor.lambda_function import fetch_maritime_data, process_open_sky_data
+from backend.lambda_functions.data_ingestor.lambda_function import fetch_maritime_data, process_open_sky_data
 
 class TestDataIngestor(unittest.TestCase):
     @patch('data_ingestor.lambda_function.requests.get')
