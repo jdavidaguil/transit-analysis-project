@@ -7,7 +7,29 @@ on:
       - 'backend/lambda_functions/data_ingestor/**'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          cd backend/lambda_functions/data_ingestor
+          pip install requests boto3
+          pip install -r requirements.txt || true
+
+      - name: Run tests
+        run: |
+          python -m unittest discover backend/lambda_functions/data_ingestor/tests/
+
   deploy:
+    needs: test  # This ensures tests pass before deployment
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -21,11 +43,6 @@ jobs:
         run: |
           cd backend/lambda_functions/data_ingestor
           pip install --target ./package requests boto3
-
-      - name: Run tests
-        run: |
-          cd transit-analysis-project
-          python -m unittest discover backend/lambda_functions/data_ingestor/tests/
 
       - name: Create deployment package
         run: |
@@ -47,24 +64,3 @@ jobs:
           aws lambda update-function-code \
             --function-name transit-data-ingestor \
             --zip-file fileb://deployment.zip
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.9'
-
-      - name: Install dependencies
-        run: |
-          cd backend/lambda_functions/data_ingestor
-          pip install -r requirements.txt
-
-      - name: Run tests
-        run: |
-          cd backend/lambda_functions/data_ingestor/tests
-          python -m unittest discover
