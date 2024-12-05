@@ -24,8 +24,8 @@ jobs:
 
       - name: Run tests
         run: |
-          cd backend/lambda_functions/data_ingestor
-          python -m unittest discover tests/
+          cd transit-analysis-project
+          python -m unittest discover backend/lambda_functions/data_ingestor/tests/
 
       - name: Create deployment package
         run: |

@@ -51,6 +51,49 @@ def fetch_maritime_data():
 
 def process_open_sky_data(data):
     """Process OpenSky Network data"""
+    
+    try:
+        aircraft_data = []
+        
+        for aircraft in data['states']:
+            # The 'aircraft' list contains the following elements:
+            # 0. icao24
+            # 1. callsign
+            # 2. origin_country
+            # 3. time_position
+            # 4. time_velocity
+            # 5. latitude
+            # 6. longitude
+            # 7. geo_altitude
+            # 8. on_ground
+            # 9. velocity
+            # 10. heading
+            # 11. vertical_rate
+            # 12. sensors
+            # 13. bar_altitude
+            # 14. squawk
+            # 15. spi
+            # 16. position_source
+            if aircraft[5] is not None and aircraft[6] is not None:
+                aircraft_data.append({
+                    'icao24': aircraft[0],
+                    'callsign': aircraft[1],
+                    'origin_country': aircraft[2],
+                    'latitude': aircraft[5],
+                    'longitude': aircraft[6]
+                })
+        
+        summary = {
+            'total_aircraft': len(aircraft_data),
+            'aircraft_data': aircraft_data
+        }
+        
+        return summary
+    
+    except Exception as e:
+        logger.error(f"Error processing OpenSky Network data: {str(e)}")
+        return {'error': str(e)}
+    """Process OpenSky Network data"""
     try:
         aircraft_data = []
         
