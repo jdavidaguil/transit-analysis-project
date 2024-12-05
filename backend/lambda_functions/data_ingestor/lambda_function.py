@@ -19,10 +19,10 @@ def fetch_maritime_data():
     """Fetch data from the OpenSky Network API"""
     api_url = os.environ.get('OPEN_SKY_NETWORK_API_URL', 'https://opensky-network.org/api/states/all')
     api_params = {
-          'lomin': -81.4294514581764,
-    'lamin': 34.7438227809691,
-    'lomax': -80.2594075128639,
-    'lamax': 35.708561567598885
+            'lomin': -81.4294514581764,
+            'lamin': 34.7438227809691,
+            'lomax': -80.2594075128639,
+            'lamax': 35.708561567598885
     }
 
     try:

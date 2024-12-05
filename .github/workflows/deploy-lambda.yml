@@ -22,6 +22,11 @@ jobs:
           cd backend/lambda_functions/data_ingestor
           pip install --target ./package requests boto3
 
+      - name: Run tests
+        run: |
+          cd backend/lambda_functions/data_ingestor
+          python -m unittest discover tests/
+
       - name: Create deployment package
         run: |
           cd backend/lambda_functions/data_ingestor/package
