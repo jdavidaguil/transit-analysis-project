@@ -21,7 +21,7 @@ def fetch_transit_data():
             'name': 'NYC_Traffic',
             'url': os.environ.get('NYC_TRAFFIC_API_URL', 'https://data.cityofnewyork.us/resource/i4gi-tjb9.json'),
             'params': {
-                '$limit': 20,
+                '$limit': 10,
                 '$where': 'speed IS NOT NULL'
             }
         },
