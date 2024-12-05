@@ -12,7 +12,7 @@ logger.setLevel(logging.INFO)
 
 # Initialize DynamoDB client
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('maritime-transit-data')
+table = dynamodb.Table('transit-analysis-data')
 
 
 def fetch_maritime_data():
